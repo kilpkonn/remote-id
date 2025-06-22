@@ -9,6 +9,7 @@ use operator_id::{OperatorId, OperatorIdType};
 use system::{ClassificationType, OperatorLocationType, System};
 
 extern crate std;
+use crate::data::system::{UaCategory, UaClass, UaClassification};
 use crate::{data::*, get_bits, get_bytes};
 use crate::{MAX_ID_BYTE_SIZE, OPEN_DRONE_ID_AD_CODE};
 
@@ -110,7 +111,14 @@ fn parse_system(buffer: &[u8]) -> Option<RemoteIDMessage> {
     let area_floor = u16::from_be_bytes(get_bytes!(buffer, 15, 2)) as f32 / 2. - 1000.;
 
     // TODO UA Classification
-    let _b = buffer[16];
+    let ua_classification = if classification_type == ClassificationType::EuropeanUnion {
+        UaClassification {
+            category: UaCategory::from(get_bits!(buffer[16], 4..7)),
+            class: UaClass::from(get_bits!(buffer[16], 0..3)),
+        }
+    } else {
+        UaClassification::undefined()
+    };
 
     // Operator Altitude
     let operator_altitude = u16::from_le_bytes(get_bytes!(buffer, 18, 2)) as f32 / 2. - 1000.;
@@ -132,6 +140,7 @@ fn parse_system(buffer: &[u8]) -> Option<RemoteIDMessage> {
         area_radius,
         area_floor,
         area_ceiling,
+        ua_classification,
         timestamp,
     }))
 }
@@ -365,6 +374,10 @@ mod test {
             area_count: 1,
             area_floor: -1000.,
             area_radius: 250.,
+            ua_classification: UaClassification {
+                category: UaCategory::Open,
+                class: UaClass::Undefined,
+            },
             timestamp: DateTime::parse_from_rfc3339(&"2024-07-04T14:05:54Z")
                 .unwrap()
                 .to_utc(),
