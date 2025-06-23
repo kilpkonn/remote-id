@@ -5,7 +5,10 @@ use location::OperationalStatus;
 
 extern crate std;
 
+use crate::data::system::ClassificationType;
+use crate::data::system::System;
 use crate::data::*;
+use crate::put_bits;
 use crate::MAX_ID_BYTE_SIZE;
 use crate::OPEN_DRONE_ID_AD_CODE;
 
@@ -25,6 +28,10 @@ pub fn to_service_data(msg: &RemoteIDMessage, message_counter: u8) -> [u8; 27] {
         RemoteIDMessage::Location(location) => {
             data[2] = (location::MESSAGE_TYPE << 4) | version;
             encode_location(location, &mut data[2..]);
+        }
+        RemoteIDMessage::System(system) => {
+            data[2] = (system::MESSAGE_TYPE << 4) | version;
+            encode_system(system, &mut data[2..]);
         }
 
         _ => todo!(),
@@ -116,15 +123,75 @@ fn encode_location(msg: &Location, target: &mut [u8]) {
     target[24] = 0;
 }
 
+fn encode_system(msg: &System, target: &mut [u8]) {
+    // Classification Type: Bits [4..2]
+    // Operator Location/Altitude source type: Bits [1..0]
+    let classification_type: u8 = msg.classification_type as u8;
+    let operator_location_type: u8 = msg.operator_location_type as u8;
+    target[1] = (classification_type << 2) | operator_location_type;
+
+    // Operator Latitude
+    let lat = (msg.operator_latidute * f32::powf(10., 7.)) as u32;
+    target[2..6].clone_from_slice(&lat.to_le_bytes());
+
+    // Operator Longitude
+    let lon = (msg.operator_longitude * f32::powf(10., 7.)) as u32;
+    target[6..10].clone_from_slice(&lon.to_le_bytes());
+
+    // Area Count
+    target[10..12].clone_from_slice(&msg.area_count.to_le_bytes());
+
+    // Area Radius
+    let area_radius = (msg.area_radius / 10.) as u8;
+    target[12] = area_radius;
+
+    // Area Ceiling
+    let area_ceiling = ((msg.area_ceiling + 1000.) / 0.5) as u16;
+    target[13..15].clone_from_slice(&area_ceiling.to_le_bytes());
+
+    // Area Floor
+    let area_floor = ((msg.area_floor + 1000.) / 0.5) as u16;
+    target[15..17].clone_from_slice(&area_floor.to_le_bytes());
+
+    // UA Classification
+    target[17] = if msg.classification_type == ClassificationType::EuropeanUnion {
+        let (cat, class): (u8, u8) = (
+            msg.ua_classification.category.into(),
+            msg.ua_classification.class.into(),
+        );
+        std::dbg!(msg.ua_classification.category, put_bits!(cat, 7..4));
+
+        put_bits!(cat, 7..4) | put_bits!(class, 3..0)
+    } else {
+        0
+    };
+
+    // Operator Altitude
+    let operator_altitude = ((msg.operator_altitude + 1000.) / 0.5) as u16;
+    target[18..20].clone_from_slice(&operator_altitude.to_le_bytes());
+
+    // Timestamp
+    let unix_timestamp = (msg.timestamp.timestamp() - 1546300800) as u32;
+    target[20..24].clone_from_slice(&unix_timestamp.to_le_bytes());
+
+    // Reserved
+    target[24] = 0;
+}
+
 #[cfg(test)]
 mod test {
     extern crate std;
+
+    use chrono::DateTime;
 
     use super::basic_id::{IdType, UAType};
     use super::location::{HeightType, Location, OperationalStatus};
     use crate::codec::copy_to_id;
     use crate::codec::encode::to_service_data;
     use crate::data::basic_id::BasicId;
+    use crate::data::system::{
+        ClassificationType, OperatorLocationType, System, UaCategory, UaClass, UaClassification,
+    };
     use crate::data::RemoteIDMessage;
 
     #[test]
@@ -186,5 +253,33 @@ mod test {
             4, 26, 14, 0, 0,
         ];
         assert_eq!(expected, to_service_data(&location, 1));
+    }
+
+    #[test]
+    fn encode_system() {
+        let system = RemoteIDMessage::System(System {
+            classification_type: ClassificationType::EuropeanUnion,
+            operator_location_type: OperatorLocationType::TakeOff,
+            operator_latidute: 49.874855,
+            operator_longitude: 8.912173,
+            operator_altitude: 210.,
+            area_ceiling: -1000.,
+            area_count: 1,
+            area_floor: -1000.,
+            area_radius: 250.,
+            ua_classification: UaClassification {
+                category: UaCategory::Open,
+                class: UaClass::Undefined,
+            },
+            timestamp: DateTime::parse_from_rfc3339(&"2024-07-04T14:05:54Z")
+                .unwrap()
+                .to_utc(),
+        });
+
+        let service_data = [
+            13, 3, 66, 4, 128, 76, 186, 29, 200, 227, 79, 5, 1, 0, 25, 0, 0, 0, 0, 16, 116, 9, 194,
+            254, 91, 10, 0,
+        ];
+        assert_eq!(service_data, to_service_data(&system, 3));
     }
 }
