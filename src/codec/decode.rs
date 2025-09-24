@@ -8,7 +8,6 @@ use location::{
 use operator_id::{OperatorId, OperatorIdType};
 use system::{ClassificationType, OperatorLocationType, System};
 
-extern crate std;
 use crate::data::system::{UaCategory, UaClass, UaClassification};
 use crate::{data::*, get_bits, get_bytes};
 use crate::{MAX_ID_BYTE_SIZE, OPEN_DRONE_ID_AD_CODE};
@@ -85,13 +84,11 @@ fn parse_system(buffer: &[u8]) -> Option<RemoteIDMessage> {
 
     // Operator Latitude
     //    Latitude of Remote Pilot
-    let operator_latidute =
-        u32::from_le_bytes(get_bytes!(buffer, 2, 4)) as f32 / f32::powf(10., 7.);
+    let operator_latidute = u32::from_le_bytes(get_bytes!(buffer, 2, 4)) as f32 / 10000000.;
 
     // Operator Longitude
     //   Longitude of Remote Pilot
-    let operator_longitude =
-        u32::from_le_bytes(get_bytes!(buffer, 6, 4)) as f32 / f32::powf(10., 7.);
+    let operator_longitude = u32::from_le_bytes(get_bytes!(buffer, 6, 4)) as f32 / 10000000.;
 
     // Area Count
     //   Number of aircraft in Area, group or formation (default 1)
@@ -176,10 +173,10 @@ fn parse_location(buffer: &[u8]) -> Option<RemoteIDMessage> {
     let vertical_speed = (vertical_speed as f32 * 0.5) as f32;
 
     // Latitude
-    let latidute = u32::from_le_bytes(get_bytes!(buffer, 5, 4)) as f32 / f32::powf(10., 7.);
+    let latidute = u32::from_le_bytes(get_bytes!(buffer, 5, 4)) as f32 / 10000000.;
 
     // Longitude
-    let longitude = u32::from_le_bytes(get_bytes!(buffer, 9, 4)) as f32 / f32::powf(10., 7.);
+    let longitude = u32::from_le_bytes(get_bytes!(buffer, 9, 4)) as f32 / 10000000.;
 
     // Pressure Altitude
     let pressure_altitude = u16::from_le_bytes(get_bytes!(buffer, 13, 2)) as f32 / 2.0 - 1000.;

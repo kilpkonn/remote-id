@@ -3,8 +3,6 @@ use location::HeightType;
 use location::Location;
 use location::OperationalStatus;
 
-extern crate std;
-
 use crate::data::system::ClassificationType;
 use crate::data::system::System;
 use crate::data::*;
@@ -78,11 +76,11 @@ fn encode_location(msg: &Location, target: &mut [u8]) {
     target[4] = (msg.vertical_speed / 0.5) as u8;
 
     // Latitude
-    let lat = (msg.latidute * f32::powf(10., 7.)) as u32;
+    let lat = (msg.latidute * 10000000.) as u32;
     target[5..9].clone_from_slice(&lat.to_le_bytes());
 
     // Longitude
-    let lon = (msg.longitude * f32::powf(10., 7.)) as u32;
+    let lon = (msg.longitude * 10000000.) as u32;
     target[9..13].clone_from_slice(&lon.to_le_bytes());
 
     // Pressure Altitude
@@ -131,11 +129,11 @@ fn encode_system(msg: &System, target: &mut [u8]) {
     target[1] = (classification_type << 2) | operator_location_type;
 
     // Operator Latitude
-    let lat = (msg.operator_latidute * f32::powf(10., 7.)) as u32;
+    let lat = (msg.operator_latidute * 10000000.) as u32;
     target[2..6].clone_from_slice(&lat.to_le_bytes());
 
     // Operator Longitude
-    let lon = (msg.operator_longitude * f32::powf(10., 7.)) as u32;
+    let lon = (msg.operator_longitude * 10000000.) as u32;
     target[6..10].clone_from_slice(&lon.to_le_bytes());
 
     // Area Count
@@ -159,7 +157,6 @@ fn encode_system(msg: &System, target: &mut [u8]) {
             msg.ua_classification.category.into(),
             msg.ua_classification.class.into(),
         );
-        std::dbg!(msg.ua_classification.category, put_bits!(cat, 7..4));
 
         put_bits!(cat, 7..4) | put_bits!(class, 3..0)
     } else {
