@@ -8,28 +8,40 @@ use crate::data::system::System;
 use crate::data::*;
 use crate::put_bits;
 use crate::MAX_ID_BYTE_SIZE;
-use crate::OPEN_DRONE_ID_AD_CODE;
 
-pub fn to_service_data(msg: &RemoteIDMessage, message_counter: u8) -> [u8; 27] {
-    let mut data = [0u8; 27];
+pub fn encode_message_pack(buf: &mut [u8], msgs: &[RemoteIDMessage]) -> Option<usize> {
+    if buf.len() < 1 + 2 + 25 * msgs.len() {
+        return None;
+    }
+    buf[0] = (0xF << 4) | 2;
+    buf[1] = 25;
+    buf[2] = msgs.len() as u8;
+    let mut offset = 3;
+    for msg in msgs {
+        buf[offset..(offset + 25)].copy_from_slice(&to_service_data(msg));
+        offset += 25;
+    }
 
-    data[0] = OPEN_DRONE_ID_AD_CODE;
-    data[1] = message_counter;
+    Some(offset)
+}
+
+pub fn to_service_data(msg: &RemoteIDMessage) -> [u8; 25] {
+    let mut data = [0u8; 25];
 
     let version = 2;
 
     match msg {
         RemoteIDMessage::BasicID(basic_id) => {
-            data[2] = (basic_id::MESSAGE_TYPE << 4) | version;
-            encode_basic_id(basic_id, &mut data[2..]);
+            data[0] = (basic_id::MESSAGE_TYPE << 4) | version;
+            encode_basic_id(basic_id, &mut data[0..]);
         }
         RemoteIDMessage::Location(location) => {
-            data[2] = (location::MESSAGE_TYPE << 4) | version;
-            encode_location(location, &mut data[2..]);
+            data[0] = (location::MESSAGE_TYPE << 4) | version;
+            encode_location(location, &mut data[0..]);
         }
         RemoteIDMessage::System(system) => {
-            data[2] = (system::MESSAGE_TYPE << 4) | version;
-            encode_system(system, &mut data[2..]);
+            data[0] = (system::MESSAGE_TYPE << 4) | version;
+            encode_system(system, &mut data[0..]);
         }
 
         _ => todo!(),
@@ -76,11 +88,11 @@ fn encode_location(msg: &Location, target: &mut [u8]) {
     target[4] = (msg.vertical_speed / 0.5) as u8;
 
     // Latitude
-    let lat = (msg.latidute * 10000000.) as u32;
+    let lat = (msg.latidute * 1e7) as i32;
     target[5..9].clone_from_slice(&lat.to_le_bytes());
 
     // Longitude
-    let lon = (msg.longitude * 10000000.) as u32;
+    let lon = (msg.longitude * 1e7) as i32;
     target[9..13].clone_from_slice(&lon.to_le_bytes());
 
     // Pressure Altitude
@@ -201,11 +213,11 @@ mod test {
         });
 
         let service_data = [
-            13, 1, 2, 16, 49, 53, 57, 54, 70, 51, 53, 57, 55, 52, 54, 49, 54, 55, 50, 54, 48, 55,
+            2, 16, 49, 53, 57, 54, 70, 51, 53, 57, 55, 52, 54, 49, 54, 55, 50, 54, 48, 55,
             52, 57, 0, 0, 0,
         ];
 
-        assert_eq!(service_data, to_service_data(&basic_id, 1));
+        assert_eq!(service_data, to_service_data(&basic_id));
     }
 
     #[test]
@@ -218,11 +230,11 @@ mod test {
         });
 
         let expected = [
-            13, 1, 2, 16, 49, 53, 57, 54, 70, 51, 49, 55, 48, 67, 69, 57, 48, 56, 70, 53, 53, 49,
+            2, 16, 49, 53, 57, 54, 70, 51, 49, 55, 48, 67, 69, 57, 48, 56, 70, 53, 53, 49,
             50, 50, 0, 0, 0,
         ];
 
-        assert_eq!(expected, to_service_data(&basic_id, 1));
+        assert_eq!(expected, to_service_data(&basic_id));
     }
 
     #[test]
@@ -246,10 +258,10 @@ mod test {
             timestamp_accuracy: None,
         });
         let expected = [
-            13, 1, 18, 32, 77, 2, 20, 128, 76, 186, 29, 200, 227, 79, 5, 77, 9, 116, 9, 208, 7, 91,
+            18, 32, 77, 2, 20, 128, 76, 186, 29, 200, 227, 79, 5, 77, 9, 116, 9, 208, 7, 91,
             4, 26, 14, 0, 0,
         ];
-        assert_eq!(expected, to_service_data(&location, 1));
+        assert_eq!(expected, to_service_data(&location));
     }
 
     #[test]
@@ -274,9 +286,9 @@ mod test {
         });
 
         let service_data = [
-            13, 3, 66, 4, 128, 76, 186, 29, 200, 227, 79, 5, 1, 0, 25, 0, 0, 0, 0, 16, 116, 9, 194,
+            66, 4, 128, 76, 186, 29, 200, 227, 79, 5, 1, 0, 25, 0, 0, 0, 0, 16, 116, 9, 194,
             254, 91, 10, 0,
         ];
-        assert_eq!(service_data, to_service_data(&system, 3));
+        assert_eq!(service_data, to_service_data(&system));
     }
 }
