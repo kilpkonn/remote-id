@@ -3,6 +3,7 @@ use location::HeightType;
 use location::Location;
 use location::OperationalStatus;
 
+use crate::data::self_id::SelfId;
 use crate::data::system::ClassificationType;
 use crate::data::system::System;
 use crate::data::*;
@@ -43,6 +44,10 @@ pub fn to_service_data(msg: &RemoteIDMessage) -> [u8; 25] {
             data[0] = (system::MESSAGE_TYPE << 4) | version;
             encode_system(system, &mut data[0..]);
         }
+        RemoteIDMessage::SelfId(self_id) => {
+            data[0] = (self_id::MESSAGE_TYPE << 4) | version;
+            encode_self_id(self_id, &mut data[0..]);
+        }
 
         _ => todo!(),
     }
@@ -56,6 +61,15 @@ fn encode_basic_id(msg: &BasicId, target: &mut [u8]) {
     target[1] = (first_nibble << 4) | last_nibble;
 
     target[2..(MAX_ID_BYTE_SIZE + 2)].clone_from_slice(&msg.uas_id);
+}
+
+fn encode_self_id(msg: &SelfId, target: &mut [u8]) {
+    match msg.description {
+        self_id::Description::Text(txt) => {
+            target[1] = 0;
+            target[2..25].copy_from_slice(&txt);
+        }
+    };
 }
 
 fn encode_location(msg: &Location, target: &mut [u8]) {
@@ -213,8 +227,8 @@ mod test {
         });
 
         let service_data = [
-            2, 16, 49, 53, 57, 54, 70, 51, 53, 57, 55, 52, 54, 49, 54, 55, 50, 54, 48, 55,
-            52, 57, 0, 0, 0,
+            2, 16, 49, 53, 57, 54, 70, 51, 53, 57, 55, 52, 54, 49, 54, 55, 50, 54, 48, 55, 52, 57,
+            0, 0, 0,
         ];
 
         assert_eq!(service_data, to_service_data(&basic_id));
@@ -230,8 +244,8 @@ mod test {
         });
 
         let expected = [
-            2, 16, 49, 53, 57, 54, 70, 51, 49, 55, 48, 67, 69, 57, 48, 56, 70, 53, 53, 49,
-            50, 50, 0, 0, 0,
+            2, 16, 49, 53, 57, 54, 70, 51, 49, 55, 48, 67, 69, 57, 48, 56, 70, 53, 53, 49, 50, 50,
+            0, 0, 0,
         ];
 
         assert_eq!(expected, to_service_data(&basic_id));
@@ -258,8 +272,8 @@ mod test {
             timestamp_accuracy: None,
         });
         let expected = [
-            18, 32, 77, 2, 20, 128, 76, 186, 29, 200, 227, 79, 5, 77, 9, 116, 9, 208, 7, 91,
-            4, 26, 14, 0, 0,
+            18, 32, 77, 2, 20, 128, 76, 186, 29, 200, 227, 79, 5, 77, 9, 116, 9, 208, 7, 91, 4, 26,
+            14, 0, 0,
         ];
         assert_eq!(expected, to_service_data(&location));
     }
@@ -286,8 +300,8 @@ mod test {
         });
 
         let service_data = [
-            66, 4, 128, 76, 186, 29, 200, 227, 79, 5, 1, 0, 25, 0, 0, 0, 0, 16, 116, 9, 194,
-            254, 91, 10, 0,
+            66, 4, 128, 76, 186, 29, 200, 227, 79, 5, 1, 0, 25, 0, 0, 0, 0, 16, 116, 9, 194, 254,
+            91, 10, 0,
         ];
         assert_eq!(service_data, to_service_data(&system));
     }

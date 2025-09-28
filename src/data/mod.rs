@@ -2,6 +2,7 @@ pub mod basic_id;
 pub mod location;
 pub mod operator_id;
 pub mod system;
+pub mod self_id;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RemoteIDMessage {
@@ -21,4 +22,6 @@ pub enum RemoteIDMessage {
 
     /// Provides Operator ID
     OperatorId(operator_id::OperatorId),
+
+    SelfId(self_id::SelfId)
 }
