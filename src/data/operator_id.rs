@@ -1,3 +1,6 @@
+
+pub const MESSAGE_TYPE: u8 = 5;
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct OperatorId {
     pub id_type: OperatorIdType,

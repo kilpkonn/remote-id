@@ -3,6 +3,7 @@ use location::HeightType;
 use location::Location;
 use location::OperationalStatus;
 
+use crate::data::operator_id::OperatorId;
 use crate::data::self_id::SelfId;
 use crate::data::system::ClassificationType;
 use crate::data::system::System;
@@ -48,8 +49,10 @@ pub fn to_service_data(msg: &RemoteIDMessage) -> [u8; 25] {
             data[0] = (self_id::MESSAGE_TYPE << 4) | version;
             encode_self_id(self_id, &mut data[0..]);
         }
-
-        _ => todo!(),
+        RemoteIDMessage::OperatorId(operator_id) => {
+            data[0] = (operator_id::MESSAGE_TYPE << 4) | version;
+            encode_operator_id(operator_id, &mut data[0..]);
+        }
     }
 
     data
@@ -70,6 +73,12 @@ fn encode_self_id(msg: &SelfId, target: &mut [u8]) {
             target[2..25].copy_from_slice(&txt);
         }
     };
+}
+
+fn encode_operator_id(msg: &OperatorId, target: &mut [u8]) {
+    target[1] = msg.id_type.into();
+    target[2..22].copy_from_slice(&msg.operator_id);
+    // 22..25 is reserved
 }
 
 fn encode_location(msg: &Location, target: &mut [u8]) {
